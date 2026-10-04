@@ -3,13 +3,19 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: Verified campus events, announcements, student activity and administrator review workflows.
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: campus
+    description: Student profile, discovery, registration and notifications
+  - name: content
+    description: Faculty-submitted events and announcements
+  - name: admin
+    description: Administrator review and platform management
 paths:
   /healthz:
     get:
@@ -24,7 +30,585 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /me:
+    get:
+      operationId: getMe
+      tags: [campus]
+      summary: Get the signed-in user's campus profile
+      responses:
+        "200":
+          description: Current profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    patch:
+      operationId: updateMe
+      tags: [campus]
+      summary: Update student profile preferences
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileUpdate"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /dashboard:
+    get:
+      operationId: getDashboard
+      tags: [campus]
+      summary: Get verified updates and personalized dashboard counts
+      responses:
+        "200":
+          description: Dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardSummary"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /events:
+    get:
+      operationId: listEvents
+      tags: [campus]
+      summary: Search and filter published events
+      parameters:
+        - $ref: "#/components/parameters/SearchQuery"
+        - $ref: "#/components/parameters/Category"
+        - $ref: "#/components/parameters/Department"
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+        - name: includeMine
+          in: query
+          schema: { type: boolean, default: false }
+      responses:
+        "200":
+          description: Matching events
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Event" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createEvent
+      tags: [content]
+      summary: Submit an event for administrator approval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventInput"
+      responses:
+        "201":
+          description: Submitted event
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Event" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /events/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      operationId: getEvent
+      tags: [campus]
+      summary: Get event details
+      responses:
+        "200":
+          description: Event details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Event" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateEvent
+      tags: [content]
+      summary: Update an event owned by the signed-in coordinator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EventUpdate" }
+      responses:
+        "200":
+          description: Updated event
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Event" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteEvent
+      tags: [content]
+      summary: Delete an owned draft event
+      responses:
+        "204":
+          description: Event deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /events/{id}/registration:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    put:
+      operationId: registerForEvent
+      tags: [campus]
+      summary: Register the signed-in student for an event
+      responses:
+        "200":
+          description: Registration
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Registration" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: cancelEventRegistration
+      tags: [campus]
+      summary: Cancel the signed-in student's event registration
+      responses:
+        "204":
+          description: Registration cancelled
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /registrations/me:
+    get:
+      operationId: listMyRegistrations
+      tags: [campus]
+      summary: List the signed-in student's event registrations
+      responses:
+        "200":
+          description: Registrations with event details
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/RegistrationView" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /bookmarks:
+    get:
+      operationId: listBookmarks
+      tags: [campus]
+      summary: List saved events
+      responses:
+        "200":
+          description: Saved events
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/BookmarkView" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /bookmarks/{eventId}:
+    parameters:
+      - name: eventId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    put:
+      operationId: bookmarkEvent
+      tags: [campus]
+      summary: Bookmark an event
+      responses:
+        "200":
+          description: Saved event bookmark
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BookmarkView" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: removeBookmark
+      tags: [campus]
+      summary: Remove an event bookmark
+      responses:
+        "204":
+          description: Bookmark removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /announcements:
+    get:
+      operationId: listAnnouncements
+      tags: [campus]
+      summary: Search and filter verified announcements
+      parameters:
+        - $ref: "#/components/parameters/SearchQuery"
+        - $ref: "#/components/parameters/Category"
+        - $ref: "#/components/parameters/Department"
+        - name: priority
+          in: query
+          schema: { type: string, enum: [urgent, important, normal] }
+      responses:
+        "200":
+          description: Matching published announcements
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Announcement" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createAnnouncement
+      tags: [content]
+      summary: Submit an announcement for administrator approval
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AnnouncementInput" }
+      responses:
+        "201":
+          description: Submitted announcement
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Announcement" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /announcements/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    get:
+      operationId: getAnnouncement
+      tags: [campus]
+      summary: Get announcement details
+      responses:
+        "200":
+          description: Announcement details
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Announcement" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateAnnouncement
+      tags: [content]
+      summary: Update an announcement owned by the signed-in coordinator
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AnnouncementUpdate" }
+      responses:
+        "200":
+          description: Updated announcement
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Announcement" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAnnouncement
+      tags: [content]
+      summary: Delete an owned draft announcement
+      responses:
+        "204":
+          description: Announcement deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [campus]
+      summary: Get the signed-in user's in-app notifications
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Notification" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /notifications/{id}/read:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    patch:
+      operationId: markNotificationRead
+      tags: [campus]
+      summary: Mark a notification as read
+      responses:
+        "200":
+          description: Updated notification
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Notification" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /calendar:
+    get:
+      operationId: getCalendar
+      tags: [campus]
+      summary: Get the signed-in user's events, exams and deadlines by date
+      parameters:
+        - name: from
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          required: true
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          description: Calendar entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CalendarEntry" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /search:
+    get:
+      operationId: searchCampus
+      tags: [campus]
+      summary: Search verified events and announcements
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 1 }
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/SearchResult" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /reports:
+    post:
+      operationId: reportContent
+      tags: [campus]
+      summary: Report potentially outdated or incorrect campus information
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReportInput" }
+      responses:
+        "201":
+          description: Report submitted
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Report" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /admin/dashboard:
+    get:
+      operationId: getAdminDashboard
+      tags: [admin]
+      summary: Get approval queue and verified platform totals
+      responses:
+        "200":
+          description: Administrator dashboard
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdminDashboard" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /admin/submissions:
+    get:
+      operationId: listSubmissions
+      tags: [admin]
+      summary: List events and announcements awaiting approval
+      responses:
+        "200":
+          description: Pending content
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Submission" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /admin/submissions/{id}/decision:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    post:
+      operationId: decideSubmission
+      tags: [admin]
+      summary: Approve or reject a submitted event or announcement
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DecisionInput" }
+      responses:
+        "200":
+          description: Reviewed submission
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Submission" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /admin/users:
+    get:
+      operationId: listUsers
+      tags: [admin]
+      summary: Search campus accounts
+      parameters:
+        - $ref: "#/components/parameters/SearchQuery"
+      responses:
+        "200":
+          description: Campus user accounts
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/User" }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+  /admin/users/{id}/role:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+    patch:
+      operationId: updateUserRole
+      tags: [admin]
+      summary: Change a campus account between student and coordinator roles
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoleUpdate" }
+      responses:
+        "200":
+          description: Updated campus account
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    SearchQuery:
+      name: q
+      in: query
+      schema: { type: string, maxLength: 200 }
+    Category:
+      name: category
+      in: query
+      schema: { $ref: "#/components/schemas/Category" }
+    Department:
+      name: department
+      in: query
+      schema: { type: string, maxLength: 80 }
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: The current role cannot perform this action
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: Request conflicts with the current event or registration state
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
   schemas:
     HealthStatus:
       type: object
@@ -33,4 +617,268 @@ components:
           type: string
       required:
         - status
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+      required: [error]
+    Category:
+      type: string
+      enum: [Academic, Workshops, Seminars, Hackathons, Competitions, Placements, Internships, Clubs, Sports, Cultural, Exams, Deadlines, General Notices]
+    UserRole:
+      type: string
+      enum: [student, coordinator, admin]
+    ApprovalStatus:
+      type: string
+      enum: [pending, approved, rejected, draft]
+    Priority:
+      type: string
+      enum: [urgent, important, normal]
+    User:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        authId: { type: string }
+        name: { type: string }
+        email: { type: string, format: email }
+        role: { $ref: "#/components/schemas/UserRole" }
+        department: { type: ["string", "null"] }
+        year: { type: ["integer", "null"] }
+        interests:
+          type: array
+          items: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, authId, name, email, role, interests, createdAt]
+    RoleUpdate:
+      type: object
+      properties:
+        role: { type: string, enum: [student, coordinator] }
+      required: [role]
+    ProfileUpdate:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+        department: { type: ["string", "null"], maxLength: 80 }
+        year: { type: ["integer", "null"], minimum: 1, maximum: 8 }
+        interests:
+          type: array
+          maxItems: 20
+          items: { type: string, maxLength: 50 }
+    Event:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        category: { $ref: "#/components/schemas/Category" }
+        department: { type: ["string", "null"] }
+        organizer: { type: string }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        venue: { type: string }
+        eligibility: { type: ["string", "null"] }
+        registrationUrl: { type: ["string", "null"], format: uri }
+        registrationDeadline: { type: ["string", "null"], format: date-time }
+        maxParticipants: { type: ["integer", "null"], minimum: 1 }
+        registrationCount: { type: integer, minimum: 0 }
+        approvalStatus: { $ref: "#/components/schemas/ApprovalStatus" }
+        createdBy: { type: string, format: uuid }
+        creatorName: { type: string }
+        verified: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, title, description, category, organizer, startsAt, endsAt, venue, registrationCount, approvalStatus, createdBy, creatorName, verified, createdAt, updatedAt]
+    EventInput:
+      type: object
+      properties:
+        title: { type: string, minLength: 3, maxLength: 180 }
+        description: { type: string, minLength: 10, maxLength: 6000 }
+        category: { $ref: "#/components/schemas/Category" }
+        department: { type: ["string", "null"], maxLength: 80 }
+        organizer: { type: string, minLength: 2, maxLength: 160 }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        venue: { type: string, minLength: 2, maxLength: 200 }
+        eligibility: { type: ["string", "null"], maxLength: 500 }
+        registrationUrl: { type: ["string", "null"], format: uri }
+        registrationDeadline: { type: ["string", "null"], format: date-time }
+        maxParticipants: { type: ["integer", "null"], minimum: 1, maximum: 100000 }
+      required: [title, description, category, organizer, startsAt, endsAt, venue]
+    EventUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 3, maxLength: 180 }
+        description: { type: string, minLength: 10, maxLength: 6000 }
+        category: { $ref: "#/components/schemas/Category" }
+        department: { type: ["string", "null"], maxLength: 80 }
+        organizer: { type: string, minLength: 2, maxLength: 160 }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        venue: { type: string, minLength: 2, maxLength: 200 }
+        eligibility: { type: ["string", "null"], maxLength: 500 }
+        registrationUrl: { type: ["string", "null"], format: uri }
+        registrationDeadline: { type: ["string", "null"], format: date-time }
+        maxParticipants: { type: ["integer", "null"], minimum: 1, maximum: 100000 }
+    Announcement:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        content: { type: string }
+        category: { $ref: "#/components/schemas/Category" }
+        department: { type: ["string", "null"] }
+        priority: { $ref: "#/components/schemas/Priority" }
+        attachmentUrl: { type: ["string", "null"], format: uri }
+        approvalStatus: { $ref: "#/components/schemas/ApprovalStatus" }
+        createdBy: { type: string, format: uuid }
+        creatorName: { type: string }
+        verified: { type: boolean }
+        publishedAt: { type: ["string", "null"], format: date-time }
+        expiresAt: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+      required: [id, title, content, category, priority, approvalStatus, createdBy, creatorName, verified, createdAt, updatedAt]
+    AnnouncementInput:
+      type: object
+      properties:
+        title: { type: string, minLength: 3, maxLength: 180 }
+        content: { type: string, minLength: 10, maxLength: 10000 }
+        category: { $ref: "#/components/schemas/Category" }
+        department: { type: ["string", "null"], maxLength: 80 }
+        priority: { $ref: "#/components/schemas/Priority" }
+        attachmentUrl: { type: ["string", "null"], format: uri }
+        expiresAt: { type: ["string", "null"], format: date-time }
+      required: [title, content, category, priority]
+    AnnouncementUpdate:
+      type: object
+      properties:
+        title: { type: string, minLength: 3, maxLength: 180 }
+        content: { type: string, minLength: 10, maxLength: 10000 }
+        category: { $ref: "#/components/schemas/Category" }
+        department: { type: ["string", "null"], maxLength: 80 }
+        priority: { $ref: "#/components/schemas/Priority" }
+        attachmentUrl: { type: ["string", "null"], format: uri }
+        expiresAt: { type: ["string", "null"], format: date-time }
+    Registration:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        eventId: { type: string, format: uuid }
+        studentId: { type: string, format: uuid }
+        registeredAt: { type: string, format: date-time }
+        status: { type: string, enum: [registered, waitlisted, cancelled] }
+      required: [id, eventId, studentId, registeredAt, status]
+    RegistrationView:
+      type: object
+      properties:
+        registration: { $ref: "#/components/schemas/Registration" }
+        event: { $ref: "#/components/schemas/Event" }
+      required: [registration, event]
+    BookmarkView:
+      type: object
+      properties:
+        event: { $ref: "#/components/schemas/Event" }
+        savedAt: { type: string, format: date-time }
+      required: [event, savedAt]
+    Notification:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        message: { type: string }
+        type: { type: string, enum: [announcement, event, registration, deadline, system] }
+        resourceId: { type: ["string", "null"], format: uuid }
+        readAt: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+      required: [id, title, message, type, createdAt]
+    CalendarEntry:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        kind: { type: string, enum: [event, exam, deadline] }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: ["string", "null"], format: date-time }
+        venue: { type: ["string", "null"] }
+        category: { $ref: "#/components/schemas/Category" }
+        registered: { type: boolean }
+        bookmarked: { type: boolean }
+      required: [id, title, kind, startsAt, category, registered, bookmarked]
+    SearchResult:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [event, announcement] }
+        title: { type: string }
+        excerpt: { type: string }
+        category: { $ref: "#/components/schemas/Category" }
+        department: { type: ["string", "null"] }
+        date: { type: ["string", "null"], format: date-time }
+        verified: { type: boolean }
+      required: [id, kind, title, excerpt, category, verified]
+    ReportInput:
+      type: object
+      properties:
+        resourceType: { type: string, enum: [event, announcement] }
+        resourceId: { type: string, format: uuid }
+        reason: { type: string, enum: [outdated, incorrect, duplicate, inappropriate, other] }
+        details: { type: string, maxLength: 2000 }
+      required: [resourceType, resourceId, reason]
+    Report:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        resourceType: { type: string, enum: [event, announcement] }
+        resourceId: { type: string, format: uuid }
+        reason: { type: string }
+        details: { type: ["string", "null"] }
+        status: { type: string, enum: [open, resolved, dismissed] }
+        createdAt: { type: string, format: date-time }
+      required: [id, resourceType, resourceId, reason, status, createdAt]
+    DashboardSummary:
+      type: object
+      properties:
+        todayAnnouncements:
+          type: array
+          items: { $ref: "#/components/schemas/Announcement" }
+        upcomingEvents:
+          type: array
+          items: { $ref: "#/components/schemas/Event" }
+        importantDeadlines:
+          type: array
+          items: { $ref: "#/components/schemas/CalendarEntry" }
+        unreadNotifications: { type: integer, minimum: 0 }
+        registeredEvents: { type: integer, minimum: 0 }
+        savedEvents: { type: integer, minimum: 0 }
+      required: [todayAnnouncements, upcomingEvents, importantDeadlines, unreadNotifications, registeredEvents, savedEvents]
+    AdminDashboard:
+      type: object
+      properties:
+        totalStudents: { type: integer, minimum: 0 }
+        totalEvents: { type: integer, minimum: 0 }
+        pendingApprovals: { type: integer, minimum: 0 }
+        upcomingEvents: { type: integer, minimum: 0 }
+        activeAnnouncements: { type: integer, minimum: 0 }
+        pendingReports: { type: integer, minimum: 0 }
+      required: [totalStudents, totalEvents, pendingApprovals, upcomingEvents, activeAnnouncements, pendingReports]
+    Submission:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [event, announcement] }
+        title: { type: string }
+        summary: { type: string }
+        category: { $ref: "#/components/schemas/Category" }
+        department: { type: ["string", "null"] }
+        submittedBy: { type: string, format: uuid }
+        submitterName: { type: string }
+        createdAt: { type: string, format: date-time }
+      required: [id, kind, title, summary, category, submittedBy, submitterName, createdAt]
+    DecisionInput:
+      type: object
+      properties:
+        kind: { type: string, enum: [event, announcement] }
+        decision: { type: string, enum: [approve, reject] }
+        note: { type: ["string", "null"], maxLength: 1000 }
+      required: [kind, decision]
 
